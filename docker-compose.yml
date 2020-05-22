@@ -1,0 +1,92 @@
+version: '3'
+
+services:
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: php
+    restart: unless-stopped
+    tty: true
+    volumes:
+      - ./:/var/www/html
+    ports:
+      - "9000:9000"
+    networks:
+      - backend
+
+  nginx:
+    image: nginx:stable-alpine
+    container_name: nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html
+      - ./default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - php
+      - mysql
+    networks:
+      - backend
+      - frontend
+
+  mysql:
+    image: mysql:5.7.22
+    container_name: mysql
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "4406:3306"
+    volumes:
+      - mysqldata:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: dockervel
+      MYSQL_USER: muhsenmaqsudi
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: secret
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    networks:
+      - backend
+
+  composer:
+    image: composer:latest
+    container_name: composer
+    volumes:
+      - ./:/var/www/html
+    working_dir: /var/www/html
+    networks:
+      - backend
+
+  npm:
+    image: node:13-alpine3.10
+    container_name: npm
+    volumes:
+      - ./:/var/www/html
+    working_dir: /var/www/html
+    entrypoint: ['npm']
+    networks:
+      - frontend
+
+  artisan:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: artisan
+    volumes:
+      - ./:/var/www/html
+    depends_on:
+      - mysql
+    working_dir: /var/www/html
+    entrypoint: ['php', '/var/www/html/artisan']
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+  frontend:
+    driver: bridge
+volumes:
+  mysqldata:
+    driver: local
